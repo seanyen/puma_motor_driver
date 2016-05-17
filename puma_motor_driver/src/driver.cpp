@@ -590,6 +590,9 @@ double Driver::lastSetpoint()
     case puma_motor_msgs::Status::MODE_VOLTAGE:
       return statusDutyCycleGet();
       break;
+    default:
+      return 0;
+      break;
   }
 }
 double Driver::statusSpeedGet()
@@ -743,7 +746,7 @@ uint8_t* Driver::getRawD()
 Driver::StatusField* Driver::statusFieldForMessage(const Message& msg)
 {
   // If it's not a STATUS message, there is no status field box to return.
-  if (msg.getApi() & CAN_MSGID_API_M != CAN_API_MC_STATUS)
+  if ((msg.getApi() & CAN_MSGID_API_M) != CAN_API_MC_STATUS)
   {
     return NULL;
   }
