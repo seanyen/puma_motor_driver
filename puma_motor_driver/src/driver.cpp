@@ -157,14 +157,14 @@ void Driver::verifyParams()
   switch (state_)
   {
     case 0:
-      ROS_DEBUG("Dev: %i starting to verify parameters.", device_number_);
+      ROS_INFO("Dev: %i starting to verify parameters.", device_number_);
       state_++;
       break;
     case 1:
       if (lastPower() == 0)
       {
         state_++;
-        ROS_DEBUG("Dev: %i cleared power flag.", device_number_);
+        ROS_INFO("Dev: %i cleared power flag.", device_number_);
       }
       else
       {
@@ -175,7 +175,7 @@ void Driver::verifyParams()
       if (posEncoderRef() == LM_REF_ENCODER)
       {
         state_++;
-        ROS_DEBUG("Dev: %i set position encoder reference.", device_number_);
+        ROS_INFO("Dev: %i set position encoder reference.", device_number_);
       }
       else
       {
@@ -186,7 +186,7 @@ void Driver::verifyParams()
       if (spdEncoderRef() == LM_REF_QUAD_ENCODER)
       {
         state_++;
-        ROS_DEBUG("Dev: %i set speed encoder reference.", device_number_);
+        ROS_INFO("Dev: %i set speed encoder reference.", device_number_);
       }
       else
       {
@@ -197,7 +197,7 @@ void Driver::verifyParams()
       if (encoderCounts() == encoder_cpr_)
       {
         state_++;
-        ROS_DEBUG("Dev: %i set encoder counts to %i.", device_number_, encoder_cpr_);
+        ROS_INFO("Dev: %i set encoder counts to %i.", device_number_, encoder_cpr_);
       }
       else
       {
@@ -208,7 +208,7 @@ void Driver::verifyParams()
       if (lastMode() == puma_motor_msgs::Status::MODE_SPEED)
       {
         state_++;
-        ROS_DEBUG("Dev: %i entered a close-loop control mode.", device_number_);
+        ROS_INFO("Dev: %i entered a close-loop control mode.", device_number_);
       }
       else
       {
@@ -221,7 +221,7 @@ void Driver::verifyParams()
         if (control_mode_ != puma_motor_msgs::Status::MODE_VOLTAGE)
         {
           state_++;
-          ROS_DEBUG("Dev: %i  was set to a close loop control mode.", device_number_);
+          ROS_INFO("Dev: %i  was set to a close loop control mode.", device_number_);
         }
         else
         {
@@ -234,7 +234,7 @@ void Driver::verifyParams()
       if (verifyRaw16x16(getRawP(), gain_p_))
       {
         state_++;
-        ROS_DEBUG("Dev: %i P gain constant was set to %f and %f was requested.", device_number_, getP(), gain_p_);
+        ROS_INFO("Dev: %i P gain constant was set to %f and %f was requested.", device_number_, getP(), gain_p_);
       }
       else
       {
@@ -256,7 +256,7 @@ void Driver::verifyParams()
       if (verifyRaw16x16(getRawI(), gain_i_))
       {
         state_++;
-        ROS_DEBUG("Dev: %i I gain constant was set to %f and %f was requested.", device_number_, getI(), gain_i_);
+        ROS_INFO("Dev: %i I gain constant was set to %f and %f was requested.", device_number_, getI(), gain_i_);
       }
       else
       {
@@ -278,7 +278,7 @@ void Driver::verifyParams()
       if (verifyRaw16x16(getRawD(), gain_d_))
       {
         state_ = 200;
-        ROS_DEBUG("Dev: %i D gain constant was set to %f and %f was requested.", device_number_, getD(), gain_d_);
+        ROS_INFO("Dev: %i D gain constant was set to %f and %f was requested.", device_number_, getD(), gain_d_);
       }
       else
       {
@@ -762,10 +762,11 @@ uint8_t* Driver::getRawD()
 Driver::StatusField* Driver::statusFieldForMessage(const Message& msg)
 {
   // If it's not a STATUS message, there is no status field box to return.
-  // if ((msg.getApi() & CAN_MSGID_API_M) != CAN_API_MC_STATUS)
-  // {
-  //   return NULL;
-  // }
+  if ((msg.getApi() & CAN_MSGID_API_M) != CAN_API_MC_STATUS)
+  {
+    ROS_INFO("NULL");
+    // return NULL;
+  }
 
   uint32_t status_field_index = (msg.getApi() & CAN_MSGID_API_ID_M) >> CAN_MSGID_API_S;
   return &status_fields_[status_field_index];
