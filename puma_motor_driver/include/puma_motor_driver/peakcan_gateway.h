@@ -34,22 +34,26 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 namespace puma_motor_driver
 {
 
-class PeakCANGateway : public Gateway
-{
-public:
-  explicit PeakCANGateway(std::string canbus_dev);
+    class PeakCANGateway : public Gateway
+    {
+    public:
+        explicit PeakCANGateway(std::string canbus_dev);
 
-  virtual bool connect();
-  virtual bool isConnected();
+        virtual bool connect();
+        virtual bool isConnected();
 
-  virtual bool recv(Message* msg);
-  virtual void queue(const Message& msg);
-  virtual bool sendAllQueued();
+        virtual bool recv(Message* msg);
+        virtual void queue(const Message& msg);
+        virtual bool sendAllQueued();
 
-private:
-  std::string canbus_dev_;  // CAN interface ID
-  bool is_connected_;
-};
+    private:
+        std::string canbus_dev_;  // CAN interface ID
+        uint16_t busId_;
+        bool is_connected_;
+
+        Message write_frames_[1024];
+        int write_frames_index_;
+    };
 
 }  // namespace puma_motor_driver
 

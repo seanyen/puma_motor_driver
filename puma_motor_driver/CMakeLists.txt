@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(puma_motor_driver)
 
-set (CMAKE_VERBOSE_MAKEFILE on)
-
 if (WIN32)
 set(TARGET_ARCH "Win32")
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -63,9 +61,9 @@ include_directories(
 )
 
 if (WIN32)
-  set(${CAN_CPP_FILES} src/peakcan_gateway.cpp)
+  file(GLOB CAN_CPP_FILES src/peakcan_gateway.cpp)
 else()
-  set(${CAN_CPP_FILES} src/socketcan_gateway.cpp)
+  file(GLOB CAN_CPP_FILES src/socketcan_gateway.cpp)
 endif()
 
 add_library(puma_motor_driver
@@ -75,6 +73,10 @@ add_library(puma_motor_driver
   src/multi_driver_node.cpp
   src/diagnostic_updater.cpp
 )
+
+if (WIN32)
+add_dependencies(puma_motor_driver pcan-basic)
+endif()
 
 target_link_libraries(puma_motor_driver
   ${catkin_LIBRARIES}

@@ -32,8 +32,9 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 namespace puma_motor_driver
 {
 
-struct Message
+class Message
 {
+public:
   uint8_t data[8];
   uint32_t id;
   uint8_t len;
