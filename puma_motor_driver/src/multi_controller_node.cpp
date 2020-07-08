@@ -34,7 +34,11 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 #include "sensor_msgs/JointState.h"
 #include "puma_motor_driver/driver.h"
 #include "puma_motor_driver/serial_gateway.h"
+#ifdef WIN32
+#include "puma_motor_driver/peakcan_gateway.h"
+#else
 #include "puma_motor_driver/socketcan_gateway.h"
+#endif
 #include "puma_motor_driver/multi_driver_node.h"
 #include "puma_motor_driver/diagnostic_updater.h"
 #include "puma_motor_msgs/MultiStatus.h"
@@ -239,7 +243,11 @@ int main(int argc, char *argv[])
 
   if (nh_private.getParam("canbus_dev", canbus_dev))
   {
+    #ifdef WIN32
+    gateway.reset(new puma_motor_driver::PeakCANGateway(canbus_dev));
+    #else
     gateway.reset(new puma_motor_driver::SocketCANGateway(canbus_dev));
+    #endif
   }
   else if (nh_private.getParam("serial_port", serial_port))
   {
