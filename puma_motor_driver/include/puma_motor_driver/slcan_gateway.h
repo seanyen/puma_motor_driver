@@ -22,8 +22,8 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCL
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef PUMA_MOTOR_DRIVER_PEAKCAN_GATEWAY_H
-#define PUMA_MOTOR_DRIVER_PEAKCAN_GATEWAY_H
+#ifndef PUMA_MOTOR_DRIVER_SLCAN_GATEWAY_H
+#define PUMA_MOTOR_DRIVER_SSLCAN_GATEWAY_H
 
 
 #include <string>
@@ -34,26 +34,41 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 namespace puma_motor_driver
 {
 
-    class PeakCANGateway : public Gateway
-    {
-    public:
-        explicit PeakCANGateway(std::string canbus_dev);
+struct SLCanMsg
+{
+  char type;
+  char id[8];
+  char len[1];
+  char data[16];
+  char delim;
+};
 
-        virtual bool connect();
-        virtual bool isConnected();
+class SLCANGateway : public Gateway
+{
+public:
+  explicit SLCANGateway(std::string canbus_dev);
 
-        virtual bool recv(Message* msg);
-        virtual void queue(const Message& msg);
-        virtual bool sendAllQueued();
+  virtual bool connect();
+  virtual bool isConnected();
 
-    private:
-        std::string canbus_dev_;  // CAN interface ID
-        uint16_t busId_;
-        bool is_connected_;
+  virtual bool recv(Message* msg);
+  virtual void queue(const Message& msg);
+  virtual bool sendAllQueued();
 
-        Message write_frames_[1024];
-        int write_frames_index_;
-    };
+private:
+  void encodedMsg(SLCanMsg& slCanMsg, Message& msg);
+  void decodedMsg(Message& msg, SLCanMsg& slCanMsg);
+  
+  std::string canbus_dev_;  // CAN interface ID
+  bool is_connected_;
+
+  boost::asio::io_service io_service_;
+  boost::asio::ip::udp::socket* socket_;
+  boost::thread socket_thread_;
+  boost::asio::ip::udp::endpoint endpoint_;
+  Message write_frames_[1024];
+  int write_frames_index_;
+};
 
 }  // namespace puma_motor_driver
 
