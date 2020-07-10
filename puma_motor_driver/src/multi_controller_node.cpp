@@ -22,20 +22,23 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCL
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include "ros/ros.h"
+
 #include <string>
 #include <vector>
 
+#include <boost/asio.hpp>
+#include <boost/thread.hpp>
 #include "boost/foreach.hpp"
 #include "boost/scoped_ptr.hpp"
 #include "boost/shared_ptr.hpp"
 #include "serial/serial.h"
 
-#include "ros/ros.h"
 #include "sensor_msgs/JointState.h"
 #include "puma_motor_driver/driver.h"
 #include "puma_motor_driver/serial_gateway.h"
 #ifdef WIN32
-#include "puma_motor_driver/peakcan_gateway.h"
+#include "puma_motor_driver/slcan_gateway.h"
 #else
 #include "puma_motor_driver/socketcan_gateway.h"
 #endif
@@ -244,7 +247,7 @@ int main(int argc, char *argv[])
   if (nh_private.getParam("canbus_dev", canbus_dev))
   {
     #ifdef WIN32
-    gateway.reset(new puma_motor_driver::PeakCANGateway(canbus_dev));
+    gateway.reset(new puma_motor_driver::SLCANGateway(canbus_dev));
     #else
     gateway.reset(new puma_motor_driver::SocketCANGateway(canbus_dev));
     #endif

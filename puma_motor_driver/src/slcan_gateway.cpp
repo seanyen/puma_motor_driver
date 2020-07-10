@@ -37,6 +37,9 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 using boost::asio::ip::udp;
 using boost::asio::ip::address;
 
+namespace puma_motor_driver
+{
+
 template<typename IntT>
 static bool fromHex(const char* buffer, int8_t len, IntT* out)
 {
@@ -83,51 +86,40 @@ void toHex(IntT val, char* out)
   }
 }
 
-/**
- * Templated to avoid a direct header dependency on stm32f4xx_can.h, for testability.
- *
- * See: https://github.com/andysworkshop/stm32plus/blob/master/lib/fwlib/f4/stdperiph/inc/stm32f4xx_can.h#L137
- */
-template<class CANMsgT>
-bool decodeSLCAN(const SLCANMsg& slcan_msg, CANMsgT* can_msg_out)
+template<class SLCANMsg>
+bool decodeSLCAN(const SLCANMsg& slcan_msg, Message* can_msg_out)
 {
   if (slcan_msg.type != 'R' && slcan_msg.type != 'T')
   {
-    LOG_WARN("Bad SLCAN message type.", slcan_msg.type);
+    ROS_WARN("Bad SLCAN message type.", slcan_msg.type);
     return false;
   }
 
-  // Hard code this to extended identifier; we don't support 11-bit identifiers.
-  can_msg_out->IDE = 0x4;
-
-  // Set the RTR bit according to whether the type byte was R or T.
-  can_msg_out->RTR = slcan_msg.type == 'R' ? 0x2 : 0x0;
-
   // Read in the 29-bit ID.
-  if (!fromHex(slcan_msg.id, 8, &can_msg_out->ExtId))
+  if (!fromHex(slcan_msg.id, 8, &can_msg_out->id))
   {
-    LOG_WARN("Bad SLCAN message id.");
+    ROS_WARN("Bad SLCAN message id.");
     return false;
   }
 
   // Read in the data length and data bytes.
-  if (!fromHex(slcan_msg.len, 1, &can_msg_out->DLC))
+  if (!fromHex(slcan_msg.len, 1, &can_msg_out->len))
   {
-    LOG_WARN("Bad SLCAN message data length.");
+    ROS_WARN("Bad SLCAN message data length.");
     return false;
   }
 
-  if (can_msg_out->DLC > 8)
+  if (can_msg_out->len > 8)
   {
-    LOG_WARN("Too-high SLCAN message data length.");
+    ROS_WARN("Too-high SLCAN message data length.");
     return false;
   }
 
-  for (int i = 0; i < can_msg_out->DLC; i++)
+  for (int i = 0; i < can_msg_out->len; i++)
   {
-    if (!fromHex(&slcan_msg.data[i*2], 2, &can_msg_out->Data[i]))
+    if (!fromHex(&slcan_msg.data[i*2], 2, &can_msg_out->data[i]))
     {
-      LOG_WARN("Bad SLCAN message data.");
+      ROS_WARN("Bad SLCAN message data.");
       return false;
     }
   }
@@ -139,29 +131,27 @@ bool decodeSLCAN(const SLCANMsg& slcan_msg, CANMsgT* can_msg_out)
 /**
  * Returns the total length of the SLCAN string produced.
  */
-template<class CANMsgT>
-int encodeSLCAN(const CANMsgT& can_msg, SLCANMsg* slcan_msg_out)
+template<class Message>
+int encodeSLCAN(const Message& can_msg, SLCanMsg* slcan_msg_out)
 {
   static const char* dlc_set = "012345678";
-  slcan_msg_out->len[0] = dlc_set[can_msg.DLC];
-  slcan_msg_out->type = can_msg.RTR & 0x2 ? 'R' : 'T';
-  toHex(can_msg.ExtId, slcan_msg_out->id);
-  for (int i = 0; i < can_msg.DLC; i++)
+  slcan_msg_out->len[0] = dlc_set[can_msg.len];
+  slcan_msg_out->type = 'T';
+  toHex(can_msg.id, slcan_msg_out->id);
+  for (int i = 0; i < can_msg.len; i++)
   {
-    toHex(can_msg.Data[i], &slcan_msg_out->data[i * 2]);
+    toHex(can_msg.data[i], &slcan_msg_out->data[i * 2]);
   }
 
   // Add terminating CR. This either lives in the delim field, or somewhere in the
   // data field, depending how long the data was.
-  slcan_msg_out->data[can_msg.DLC * 2] = '\r';
+  slcan_msg_out->data[can_msg.len * 2] = '\r';
 
   // 1 char header + 8 chars ID + 1 char length + 1 char delimiter = 11 chars
-  int total_slcan_length = 11 + (can_msg.DLC * 2);
+  int total_slcan_length = 11 + (can_msg.len * 2);
   return total_slcan_length;
 }
 
-namespace puma_motor_driver
-{
 
 SLCANGateway::SLCANGateway(std::string canbus_dev):
   canbus_dev_(canbus_dev),
@@ -186,9 +176,9 @@ bool SLCANGateway::isConnected()
 bool SLCANGateway::recv(Message* msg)
 {
   SLCanMsg slCanMsg;
-  if (boost::asio::read(socket_, boost::asio::buffer(&slCanMsg, sizeof(SLCanMsg))))
+  if (socket_->receive(boost::asio::buffer(&slCanMsg, sizeof(SLCanMsg))))
   {
-    decodedMsg(*msg, slCanMsg);
+    decodeSLCAN(slCanMsg, msg);
   }
 
   return false;
@@ -218,25 +208,14 @@ bool SLCANGateway::sendAllQueued()
 
     SLCanMsg request = {0};
 
-    encodedMsg(request, write_frames_[i]);
+    encodeSLCAN(write_frames_[i], &request);
 
     boost::system::error_code err;
-    auto sent = socket_.send_to(boost::asio::buffer(&request, sizeof(request)), endpoint_, 0, err);
+    auto sent = socket_->send_to(boost::asio::buffer(&request, sizeof(request)), endpoint_, 0, err);
     // **WARNING* 
     // Return Result Ignored on other implementations
   }
   write_frames_index_ = 0;
   return true;
 }
-
-void SLCANGateway::encodedMsg(SLCanMsg& slCanMsg, const Message& msg)
-{
-  
-}
-
-void SLCANGateway::decodedMsg(Message& msg, const SLCanMsg& slCanMsg)
-{
-
-}
-
 }

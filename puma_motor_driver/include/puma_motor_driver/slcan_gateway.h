@@ -56,8 +56,6 @@ public:
   virtual bool sendAllQueued();
 
 private:
-  void encodedMsg(SLCanMsg& slCanMsg, Message& msg);
-  void decodedMsg(Message& msg, SLCanMsg& slCanMsg);
   
   std::string canbus_dev_;  // CAN interface ID
   bool is_connected_;
