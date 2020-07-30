@@ -1,45 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(puma_motor_driver)
 
-if (WIN32)
-set(TARGET_ARCH "Win32")
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    set(TARGET_ARCH "x64")
-endif()
-
-# Create locations to place the PCAN-Basic library
-file(MAKE_DIRECTORY
-    ${CMAKE_BINARY_DIR}/installed/pcan-basic/bin
-    ${CMAKE_BINARY_DIR}/installed/pcan-basic/lib
-    ${CMAKE_BINARY_DIR}/installed/pcan-basic/include)
-
-# Pull down the PCAN-Basic library
-include(ExternalProject)
-ExternalProject_Add(
-    pcan-basic
-    URL https://www.peak-system.com/fileadmin/media/files/pcan-basic.zip
-    URL_MD5 d388e723046e7b2f6bd06489a12a3d96
-    PREFIX ${CMAKE_BINARY_DIR}/pcan-basic
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_directory
-                    <SOURCE_DIR>/include ${CMAKE_BINARY_DIR}/installed/pcan-basic/include
-    COMMAND ${CMAKE_COMMAND} -E copy
-            <SOURCE_DIR>/${TARGET_ARCH}/PCANBasic.dll ${CMAKE_BINARY_DIR}/installed/pcan-basic/bin
-    COMMAND ${CMAKE_COMMAND} -E copy
-            <SOURCE_DIR>/${TARGET_ARCH}/VC_LIB/PCANBasic.lib ${CMAKE_BINARY_DIR}/installed/pcan-basic/lib
-    LOG_DOWNLOAD ON
-    LOG_INSTALL ON
-    )
-
-# Initialize include paths and library paths
-set(pcan_LIBRARIES ${CMAKE_BINARY_DIR}/installed/pcan-basic/lib/PCANBasic.lib)
-set(pcan_INCLUDE_DIRS ${CMAKE_BINARY_DIR}/installed/pcan-basic/include)
-else()
-set(pcan_LIBRARIES)
-set(pcan_INCLUDE_DIRS)
-endif()
-
 find_package(catkin REQUIRED COMPONENTS
   diagnostic_updater
   puma_motor_msgs
@@ -57,11 +18,10 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${pcan_INCLUDE_DIRS}  
 )
 
 if (WIN32)
-  file(GLOB CAN_CPP_FILES src/peakcan_gateway.cpp)
+  file(GLOB CAN_CPP_FILES src/slcan_gateway.cpp)
 else()
   file(GLOB CAN_CPP_FILES src/socketcan_gateway.cpp)
 endif()
@@ -74,13 +34,8 @@ add_library(puma_motor_driver
   src/diagnostic_updater.cpp
 )
 
-if (WIN32)
-add_dependencies(puma_motor_driver pcan-basic)
-endif()
-
 target_link_libraries(puma_motor_driver
   ${catkin_LIBRARIES}
-  ${pcan_LIBRARIES}
 )
 add_dependencies(puma_motor_driver puma_motor_msgs_gencpp)
 
