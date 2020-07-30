@@ -62,8 +62,10 @@ private:
 
   boost::asio::io_service io_service_;
   boost::asio::ip::udp::socket* socket_;
+  boost::asio::ip::udp::socket* socketReceive_;
   boost::thread socket_thread_;
   boost::asio::ip::udp::endpoint endpoint_;
+  boost::asio::ip::udp::endpoint endpointRemote_;
   Message write_frames_[1024];
   int write_frames_index_;
 };

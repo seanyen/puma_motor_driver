@@ -28,6 +28,7 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSI
 #include <string>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <boost/asio/ip/address_v4.hpp>
 #include <boost/thread.hpp>
 #include <boost/chrono.hpp>
 #include <boost/foreach.hpp>
@@ -135,6 +136,12 @@ template<class Message>
 int encodeSLCAN(const Message& can_msg, SLCanMsg* slcan_msg_out)
 {
   static const char* dlc_set = "012345678";
+  if (can_msg.len > 8)
+  {
+    ROS_ERROR("bad can message with length %d", can_msg.len);
+    return 0;
+  }
+
   slcan_msg_out->len[0] = dlc_set[can_msg.len];
   slcan_msg_out->type = 'T';
   toHex(can_msg.id, slcan_msg_out->id);
@@ -155,14 +162,26 @@ int encodeSLCAN(const Message& can_msg, SLCanMsg* slcan_msg_out)
 
 SLCANGateway::SLCANGateway(std::string canbus_dev):
   canbus_dev_(canbus_dev),
-  is_connected_(false)
+  is_connected_(false),
+  write_frames_index_(0)
+
 {
 }
 
 bool SLCANGateway::connect()
 {
+    socketReceive_ = new boost::asio::ip::udp::socket(io_service_);
     socket_ = new boost::asio::ip::udp::socket(io_service_);
-    endpoint_ = udp::endpoint(address::from_string(canbus_dev_), 11412);
+    endpoint_ = udp::endpoint(boost::asio::ip::address_v4::any(), 11412);
+    endpointRemote_ = udp::endpoint(address::from_string(canbus_dev_), 11412);
+    
+    socket_->open(udp::v4());
+    socket_->set_option(boost::asio::ip::udp::socket::reuse_address(true));
+    socket_->connect(endpointRemote_);
+
+    socketReceive_->open(udp::v4());
+    socketReceive_->set_option(boost::asio::ip::udp::socket::reuse_address(true));
+    socketReceive_->bind(endpoint_);
 
     socket_thread_ = boost::thread(boost::bind(&boost::asio::io_service::run, &io_service_));
 }
@@ -175,13 +194,20 @@ bool SLCANGateway::isConnected()
 
 bool SLCANGateway::recv(Message* msg)
 {
-  SLCanMsg slCanMsg;
-  if (socket_->receive(boost::asio::buffer(&slCanMsg, sizeof(SLCanMsg))))
+  try
   {
-    decodeSLCAN(slCanMsg, msg);
+    SLCanMsg slCanMsg;
+    if (socketReceive_->receive_from(boost::asio::buffer(&slCanMsg, sizeof(SLCanMsg)), endpointRemote_))
+    {
+      decodeSLCAN(slCanMsg, msg);
+    }
+  }
+  catch (std::exception& e)
+  {
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 void SLCANGateway::queue(const Message& msg)
@@ -202,20 +228,30 @@ void SLCANGateway::queue(const Message& msg)
 
 bool SLCANGateway::sendAllQueued()
 {
-  for (int i = 0; i < write_frames_index_; i++)
+  bool ret = false;
+  try
   {
-    ROS_DEBUG("Writing ID 0x%08x, data (%d)", write_frames_[i].id, write_frames_[i].len);
+    for (int i = 0; i < write_frames_index_; i++)
+    {
+      ROS_DEBUG("Writing ID 0x%08x, data (%d)", write_frames_[i].id, write_frames_[i].len);
 
-    SLCanMsg request = {0};
+      SLCanMsg request = {0};
 
-    encodeSLCAN(write_frames_[i], &request);
-
-    boost::system::error_code err;
-    auto sent = socket_->send_to(boost::asio::buffer(&request, sizeof(request)), endpoint_, 0, err);
-    // **WARNING* 
-    // Return Result Ignored on other implementations
+      if (encodeSLCAN(write_frames_[i], &request) > 0)
+      {
+        boost::system::error_code err;
+        auto sent = socket_->send_to(boost::asio::buffer(&request, sizeof(request)), endpointRemote_, 0, err);
+        // **WARNING* 
+        // Return Result Ignored on other implementations
+      }
+    }
   }
+  catch (std::exception& e)
+  {
+    ret = false;
+  }
+
   write_frames_index_ = 0;
-  return true;
+  return ret;
 }
 }
